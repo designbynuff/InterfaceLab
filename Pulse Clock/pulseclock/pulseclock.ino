@@ -226,7 +226,8 @@ void loop() {
         int pulseRate = pulseSensor.getBeatsPerMinute(); // I need to set delayval to the current BPM
         }
 
-      delay(6000/pulseRate);  // Pause before next pass through loop
+      //delay(6000/pulseRate);  // Pause before next pass through loop
+      delay(1000);
     }
 
     /******
