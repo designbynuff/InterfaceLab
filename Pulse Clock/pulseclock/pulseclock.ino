@@ -74,6 +74,8 @@ const int PULSE_BLINK = LED_BUILTIN;
 const int PULSE_FADE = 5;
 const int THRESHOLD = 550;  // Adjust this number to avoid noise when idle
 
+int interval=200;
+unsigned long passedtime;
 /*
    samplesUntilReport = the number of samples remaining to read
    until we want to report a sample over the serial connection.
@@ -116,7 +118,9 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 #define DELAYVAL 500  // Time (in milliseconds) to pause between pixels
 int red = 100;
-int pulseRate; // I'll use this to drive the clock
+int pulseRate;  // I'll use this to drive the clock
+int ringCount = 0;
+int brightness = 100;
 
 void setup() {
 
@@ -132,6 +136,7 @@ void setup() {
   Serial.begin(115200);
 
   pixels.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
+  pixels.clear(); // Turn all pixels off
 
   // Configure the PulseSensor manager.
   pulseSensor.analogInput(PULSE_INPUT);
@@ -154,17 +159,16 @@ void setup() {
 
        If your Sketch hangs here, try changing USE_PS_INTERRUPT to false.
     */
-    for (;;) {
-      // Flash the led to show things didn't work.
-      digitalWrite(PULSE_BLINK, LOW);
-      delay(50);
-      Serial.println('!');
-      digitalWrite(PULSE_BLINK, HIGH);
-      delay(50);
-    }
+    // for (;;) {
+    //   // Flash the led to show things didn't work.
+    //   digitalWrite(PULSE_BLINK, LOW);
+    //   delay(50);
+    //   Serial.println('!');
+    //   digitalWrite(PULSE_BLINK, HIGH);
+    //   delay(50);
+    // }
   }
-
-
+  passedtime=millis();
 }
 
 
@@ -192,7 +196,7 @@ void loop() {
     if (--samplesUntilReport == (byte)0) {
       samplesUntilReport = SAMPLES_PER_SERIAL_SAMPLE;
 
-      pulseSensor.outputSample();
+      // pulseSensor.outputSample();
 
       /*
          At about the beginning of every heartbeat,
@@ -200,35 +204,60 @@ void loop() {
       */
       if (pulseSensor.sawStartOfBeat()) {
         pulseSensor.outputBeat();
+        // Serial.println ("beat"); // print every time a heartbeat is registered
       }
     }
-
+    if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) { // if reading is within human limits
+      pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
+      interval = 60000/pulseRate; // dived 60 seconds by BPM, make that the interval (delay time)
+      // Serial.println(pulseRate);
+    }
     /*******
       Here is a good place to add code that could take up
       to a millisecond or so to run.
     *******/
 
     pulseSensor.getBeatsPerMinute();
+    // Serial.println (pulseSensor.getBeatsPerMinute());
 
     //NEOPIXEL
 
-    pixels.clear();  // Set all pixel colors to 'off'
+    // pixels.clear();  // Set all pixel colors to 'off'
+
+if(millis() - passedtime>interval){
+Serial.println("LED");
+
+  pixels.setPixelColor(ringCount, pixels.Color(brightness, brightness, brightness));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
+
+  pixels.show();  // Send the updated pixel colors to the hardware.
+
+  ringCount++;
+  ringCount = ringCount % NUMPIXELS;
+  if (ringCount > 10) {
+    pixels.setPixelColor(ringCount - 10, pixels.Color(0,0,0));
+  }
+
+  for (int i = 1; i < 11; i++) {
+    pixels.setPixelColor(ringCount - i, pixels.Color(brightness - (i * 10), brightness - (i * 10), brightness - (i * 10)));
+  }
+
+  passedtime = millis();
+
+}
+
+
 
     // The first NeoPixel in a strand is #0, second is 1, all the way up
     // to the count of pixels minus one.
-    for (int i = 0; i < NUMPIXELS; i++) {  // For each pixel...
+    // for (int i = 0; i < NUMPIXELS; i++) {  // For each pixel...
 
-      pixels.setPixelColor(i, pixels.Color(100, 100, 100)); // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
+    //   pixels.setPixelColor(i, pixels.Color(100, 100, 100));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
 
-      pixels.show();  // Send the updated pixel colors to the hardware.
+    //   pixels.show();  // Send the updated pixel colors to the hardware.
 
-      if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200){
-        int pulseRate = pulseSensor.getBeatsPerMinute(); // I need to set delayval to the current BPM
-        }
-
-      //delay(6000/pulseRate);  // Pause before next pass through loop
-      delay(1000);
-    }
+    //   delay(10);  // Pause before next pass through loop
+    //   //delay(1000);
+    // }
 
     /******
      Don't add code here, because it could slow the sampling
