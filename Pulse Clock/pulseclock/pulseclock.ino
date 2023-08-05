@@ -74,7 +74,7 @@ const int PULSE_BLINK = LED_BUILTIN;
 const int PULSE_FADE = 5;
 const int THRESHOLD = 550;  // Adjust this number to avoid noise when idle
 
-int interval=200;
+int interval = 200;  //
 unsigned long passedtime;
 /*
    samplesUntilReport = the number of samples remaining to read
@@ -121,6 +121,9 @@ int red = 100;
 int pulseRate;  // I'll use this to drive the clock
 int ringCount = 0;
 int brightness = 100;
+float fadeRate = 0.03;
+
+float currentPixel[60];
 
 void setup() {
 
@@ -136,7 +139,7 @@ void setup() {
   Serial.begin(115200);
 
   pixels.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.clear(); // Turn all pixels off
+  pixels.clear();  // Turn all pixels off
 
   // Configure the PulseSensor manager.
   pulseSensor.analogInput(PULSE_INPUT);
@@ -168,7 +171,11 @@ void setup() {
     //   delay(50);
     // }
   }
-  passedtime=millis();
+  passedtime = millis();
+
+  for (int j = 0; j < NUMPIXELS; j++) {
+    currentPixel[j] = 0;
+  }
 }
 
 
@@ -207,10 +214,10 @@ void loop() {
         // Serial.println ("beat"); // print every time a heartbeat is registered
       }
     }
-    if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) { // if reading is within human limits
-      pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
-      interval = 60000/pulseRate; // dived 60 seconds by BPM, make that the interval (delay time)
-      // Serial.println(pulseRate);
+    if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) {  // if reading is within human limits
+      pulseRate = pulseSensor.getBeatsPerMinute();                                        // turn the BPM into pulseRate
+      interval = 60000 / pulseRate;                                                       // dived 60 seconds by BPM, make that the interval (delay time)
+    //  Serial.println(interval);
     }
     /*******
       Here is a good place to add code that could take up
@@ -224,26 +231,47 @@ void loop() {
 
     // pixels.clear();  // Set all pixel colors to 'off'
 
-if(millis() - passedtime>interval){
-Serial.println("LED");
+    if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
+      // Serial.println("LED");
 
-  pixels.setPixelColor(ringCount, pixels.Color(brightness, brightness, brightness));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
 
-  pixels.show();  // Send the updated pixel colors to the hardware.
+      //Pixel stepper. Works perfectly but needs a pixels.clear() once the ring is complete
+      // pixels.setPixelColor(ringCount, pixels.Color(brightness, brightness, brightness));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
 
-  ringCount++;
-  ringCount = ringCount % NUMPIXELS;
-  if (ringCount > 10) {
-    pixels.setPixelColor(ringCount - 10, pixels.Color(0,0,0));
-  }
+      // pixels.show();  // Send the updated pixel colors to the hardware.
 
-  for (int i = 1; i < 11; i++) {
-    pixels.setPixelColor(ringCount - i, pixels.Color(brightness - (i * 10), brightness - (i * 10), brightness - (i * 10)));
-  }
+      // ringCount++;
+      // ringCount = ringCount % NUMPIXELS;
 
-  passedtime = millis();
+      // Fading trail of 10 pixels, looks too much like Snake
+      // if (ringCount > 10) {
+      //   pixels.setPixelColor(ringCount - 10, pixels.Color(0,0,0));
+      // }
 
-}
+      // for (int i = 1; i < 11; i++) {
+      //   pixels.setPixelColor(ringCount - i, pixels.Color(brightness - (i * 10), brightness - (i * 10), brightness - (i * 10)));
+      // }
+
+      // Set current array value to 100, 100, 100
+      currentPixel[ringCount] = 200;
+
+      // Set every pixel to current array value
+      pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
+
+      ringCount++;
+      ringCount = ringCount % NUMPIXELS;
+
+      passedtime = millis();
+    }
+
+    // Fade down any pixels above zero
+    for (int i = 0; i < NUMPIXELS; i++) {
+      if (currentPixel[i] > 0) {
+        currentPixel[i] -= fadeRate;
+        pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
+      }
+    }
+    pixels.show();
 
 
 
