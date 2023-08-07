@@ -252,7 +252,7 @@ void loop() {
     if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) {  // if reading is within human limits
       
       if (alreadyConnected = false) { // only run connected if it hasn't already run, we'll turn this back off in "disconnected"
-        alreadyConnected = true;
+        
         connected();
       delay(3000);
       pixels.clear();
@@ -265,7 +265,7 @@ void loop() {
     else {
 
       if (alreadyConnected = true) {
-        alreadyConnected = false;
+
         disconnected();
         pixels.clear();
         pixels.show();
@@ -354,6 +354,7 @@ void connected() {
   }
 
   pixels.show();
+  alreadyConnected = true;
 }
 
 void disconnected() {
@@ -371,4 +372,5 @@ void disconnected() {
   }
 
   pixels.show();
+       alreadyConnected = false;
 }
