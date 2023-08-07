@@ -74,7 +74,7 @@ const int PULSE_BLINK = LED_BUILTIN;
 const int PULSE_FADE = 5;
 const int THRESHOLD = 550;  // Adjust this number to avoid noise when idle
 
-int interval = 200;  //
+int interval = 500;  //
 unsigned long passedtime;
 /*
    samplesUntilReport = the number of samples remaining to read
@@ -116,7 +116,11 @@ PulseSensorPlayground pulseSensor;
 // strandtest example for more information on possible values.
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
-#define DELAYVAL 500  // Time (in milliseconds) to pause between pixels
+//Set up RTC
+#include <RTCZero.h>  // include library
+RTCZero rtc;          // Create RTC object
+
+#define DELAYVAL 200  // Time (in milliseconds) to pause between pixels
 int red = 100;
 int pulseRate;  // I'll use this to drive the clock
 int ringCount = 0;
@@ -124,6 +128,21 @@ int brightness = 100;
 float fadeRate = 0.035;
 
 float currentPixel[60];
+
+/* Change these values to set the current initial time */
+const byte seconds = 0;
+const byte minutes = 40;
+const byte hours = 2;
+
+/* Change these values to set the current initial date */
+const byte day = 15;
+const byte month = 6;
+const byte year = 15;
+
+//clock numbers
+int h = 1;
+int m = 15;
+int s = 30;
 
 void setup() {
 
@@ -173,8 +192,21 @@ void setup() {
   }
   passedtime = millis();
 
+  //RTC Setup
+  rtc.begin();  // initialize RTC
+
+  // Set the time
+  rtc.setHours(hours);
+  rtc.setMinutes(minutes);
+  rtc.setSeconds(seconds);
+
+  // Set the date
+  rtc.setDay(day);
+  rtc.setMonth(month);
+  rtc.setYear(year);
+
   for (int j = 0; j < NUMPIXELS; j++) {
-    currentPixel[j] = 0; // set value to zero for all pixels
+    currentPixel[j] = 0;  // set value to zero for all pixels
   }
 }
 
@@ -215,81 +247,20 @@ void loop() {
       }
     }
     if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) {  // if reading is within human limits
-     
-        pulseRate = pulseSensor.getBeatsPerMinute();                                        // turn the BPM into pulseRate
-      interval = 60000 / pulseRate;                                                       // divide 60 seconds by BPM, make that the interval (delay time)
-    //  Serial.println(interval);
+      connected();
+      delay(3000);
+      pixels.clear();
+      pixels.show();
+      pulseMode();
+    }
 
-
+    else {
+      pixelClock();
+    }
     /*******
       Here is a good place to add code that could take up
       to a millisecond or so to run.
     *******/
-
-    pulseSensor.getBeatsPerMinute();
-    // Serial.println (pulseSensor.getBeatsPerMinute());
-
-    //NEOPIXEL
-
-    // pixels.clear();  // Set all pixel colors to 'off'
-
-    if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
-      // Serial.println("LED");
-
-
-      //Pixel stepper. Works perfectly but needs a pixels.clear() once the ring is complete
-      // pixels.setPixelColor(ringCount, pixels.Color(brightness, brightness, brightness));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
-
-      // pixels.show();  // Send the updated pixel colors to the hardware.
-
-      // ringCount++;
-      // ringCount = ringCount % NUMPIXELS;
-
-      // Fading trail of 10 pixels, looks too much like Snake
-      // if (ringCount > 10) {
-      //   pixels.setPixelColor(ringCount - 10, pixels.Color(0,0,0));
-      // }
-
-      // for (int i = 1; i < 11; i++) {
-      //   pixels.setPixelColor(ringCount - i, pixels.Color(brightness - (i * 10), brightness - (i * 10), brightness - (i * 10)));
-      // }
-
-      // Set current array value to 100, 100, 100 (we use an array so we can independently fade every pixel below while pulsing this one)
-      currentPixel[ringCount] = 200;
-
-      // Set every pixel to current array value
-      pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
-
-      ringCount++;
-      ringCount = ringCount % NUMPIXELS;
-
-      passedtime = millis();
-    }
-
-    // Fade down any pixels above zero
-    for (int i = 0; i < NUMPIXELS; i++) {
-      if (currentPixel[i] > 0) {
-        currentPixel[i] -= fadeRate;
-        pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
-      }
-    }
-    pixels.show();
-  
-    }
-
-
-
-    // The first NeoPixel in a strand is #0, second is 1, all the way up
-    // to the count of pixels minus one.
-    // for (int i = 0; i < NUMPIXELS; i++) {  // For each pixel...
-
-    //   pixels.setPixelColor(i, pixels.Color(100, 100, 100));  // the first value should be R which is mapped from 0 - 200 with HR from 50 - 200
-
-    //   pixels.show();  // Send the updated pixel colors to the hardware.
-
-    //   delay(10);  // Pause before next pass through loop
-    //   //delay(1000);
-    // }
 
     /******
      Don't add code here, because it could slow the sampling
@@ -298,3 +269,74 @@ void loop() {
   }
 }
 
+void pixelClock() {
+
+  // Map h, m and s to a pixel on the ring
+  h = ((rtc.getHours() % 12) * 5);
+  m = (rtc.getMinutes());
+  s = (rtc.getSeconds());
+
+  // Test with Serial
+  Serial.print(h);
+  Serial.print(":");
+  Serial.print(m);
+  Serial.print(":");
+  Serial.print(s);
+  Serial.println();
+
+  // Write to Pixels
+  // pixels.clear();
+  pixels.setPixelColor(h, pixels.Color(100, 100, 100));
+  pixels.setPixelColor(m, pixels.Color(186, 144, 39));
+  pixels.setPixelColor(h, pixels.Color(39, 118, 186));
+  pixels.show();
+}
+
+void pulseMode() {
+  pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
+  interval = 60000 / pulseRate;                 // divide 60 seconds by BPM, make that the interval (delay time)
+  //  Serial.println(interval);
+
+  pulseSensor.getBeatsPerMinute();
+
+
+  if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
+
+    // Set current array value to 100, 100, 100 (we use an array so we can independently fade every pixel below while pulsing this one)
+    currentPixel[ringCount] = 200;
+
+    // Set every pixel to current array value
+    pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
+
+    ringCount++;
+    ringCount = ringCount % NUMPIXELS;
+
+    passedtime = millis();
+  }
+
+  // Fade down any pixels above zero
+  for (int i = 0; i < NUMPIXELS; i++) {
+    if (currentPixel[i] > 0) {
+      currentPixel[i] -= fadeRate;
+      pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
+    }
+  }
+  pixels.show();
+}
+
+void connected() {
+  Serial.println("connected");
+  pixels.clear();
+  // Whole ring glows green and fades back to off
+  for (int k = 0; k < NUMPIXELS; k++) {
+    currentPixel[k] = 100;
+    pixels.setPixelColor(k, 0, currentPixel[k], 0);
+  }
+  for (int l = 0; l < NUMPIXELS; l++) {
+    if (currentPixel[l] > 0) {
+      currentPixel[l] -= 1;
+    }
+  }
+
+  pixels.show();
+}
