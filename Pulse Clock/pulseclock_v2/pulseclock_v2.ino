@@ -144,6 +144,9 @@ int h = 1;
 int m = 15;
 int s = 30;
 
+// make connected run once with a boolean
+bool alreadyConnected = false;
+
 void setup() {
 
   /*
@@ -247,14 +250,26 @@ void loop() {
       }
     }
     if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) {  // if reading is within human limits
-      connected();
+      
+      if (alreadyConnected = false) { // only run connected if it hasn't already run, we'll turn this back off in "disconnected"
+        alreadyConnected = true;
+        connected();
       delay(3000);
       pixels.clear();
       pixels.show();
+      }
+
       pulseMode();
     }
 
     else {
+
+      if (alreadyConnected = true) {
+        alreadyConnected = false;
+        disconnected();
+        pixels.clear();
+        pixels.show();
+      }
       pixelClock();
     }
     /*******
@@ -335,6 +350,23 @@ void connected() {
   for (int l = 0; l < NUMPIXELS; l++) {
     if (currentPixel[l] > 0) {
       currentPixel[l] -= 1;
+    }
+  }
+
+  pixels.show();
+}
+
+void disconnected() {
+  Serial.println("disconnected");
+  pixels.clear();
+  // Whole ring glows green and fades back to off
+  for (int m = 0; m < NUMPIXELS; m++) {
+    currentPixel[m] = 100;
+    pixels.setPixelColor(currentPixel[m], 0, currentPixel[m], 0);
+  }
+  for (int n = 0; n < NUMPIXELS; n++) {
+    if (currentPixel[n] > 0) {
+      currentPixel[n] -= 1;
     }
   }
 
