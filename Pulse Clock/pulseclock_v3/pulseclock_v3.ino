@@ -74,8 +74,11 @@ const int PULSE_BLINK = LED_BUILTIN;
 const int PULSE_FADE = 5;
 const int THRESHOLD = 550;  // Adjust this number to avoid noise when idle
 
-int interval = 500;  //
+int interval = 500;  // Default speed for pulse clock if no good values
 unsigned long passedtime;
+int buttonMode = 0;  // using button to switch mode
+int buttonState = 0;
+int previousButton = 0;
 /*
    samplesUntilReport = the number of samples remaining to read
    until we want to report a sample over the serial connection.
@@ -129,20 +132,31 @@ float fadeRate = 0.035;
 
 float currentPixel[60];
 
-/* Change these values to set the current initial time */
-const byte seconds = 0;
-const byte minutes = 40;
-const byte hours = 2;
+//Clock Stuff
+#include <WiFiNINA.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
 
-/* Change these values to set the current initial date */
-const byte day = 15;
-const byte month = 6;
-const byte year = 15;
+#define SSID "sandbox370"
+#define PASS "+s0a+s03!2gether?"
+
+const long utcOffsetWinter = -18000;  // Offset from EST in seconds (3600 seconds = 5h) -- UTC-5 (EDT)
+const long utcOffsetSummer = -14400;  // Offset from UTC in seconds (7200 seconds * 4h) -- UTC-4 (EST)
+unsigned long lastupdate = 0UL;
+
+// Define NTP Client to get time
+WiFiUDP udpSocket;
+NTPClient ntpClient(udpSocket, "pool.ntp.org", utcOffsetSummer);
+
+/* Change these values to set the current initial time */
+// const byte seconds = 0;
+// const byte minutes = 40;
+// const byte hours = 2;
 
 //clock numbers
-int h = 1;
-int m = 15;
-int s = 30;
+int h;
+int m;
+int s;
 
 // make connected run once with a boolean
 bool alreadyConnected = false;
@@ -162,6 +176,11 @@ void setup() {
 
   pixels.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.clear();  // Turn all pixels off
+
+  // Setting up push button to switch modes until pulse sensing works
+  pinMode(2, INPUT);  // set the pushbutton pin to be an input
+  buttonState = digitalRead(2);
+
 
   // Configure the PulseSensor manager.
   pulseSensor.analogInput(PULSE_INPUT);
@@ -195,18 +214,38 @@ void setup() {
   }
   passedtime = millis();
 
+  //Connect to WiFiand Initialise NTP
+  WiFi.begin(SSID, PASS);
+
+  Serial.print("Connecting to ");
+  Serial.print(SSID);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(250);
+  }
+
+  Serial.println(" Done!");
+
+  ntpClient.begin();
+
+  ntpClient.update();
+
+  Serial.print(ntpClient.getHours());
+  Serial.print(":");
+  Serial.print(ntpClient.getMinutes());
+  Serial.print(":");
+  Serial.println(ntpClient.getSeconds());
+
   //RTC Setup
   rtc.begin();  // initialize RTC
 
-  // Set the time
-  rtc.setHours(11);
-  rtc.setMinutes(50);
-  rtc.setSeconds(0);
 
-  // Set the date
-  rtc.setDay(day);
-  rtc.setMonth(month);
-  rtc.setYear(year);
+  // Set the time
+  rtc.setHours(ntpClient.getHours());
+  rtc.setMinutes(ntpClient.getMinutes());
+  rtc.setSeconds(ntpClient.getSeconds());
+
 
   for (int j = 0; j < NUMPIXELS; j++) {
     currentPixel[j] = 0;  // set value to zero for all pixels
@@ -216,6 +255,73 @@ void setup() {
 
 
 void loop() {
+
+  // buttonPressed = false;
+  //     pixelClock();
+
+
+  if (digitalRead(2) == HIGH && digitalRead(2) != previousButton) {
+    Serial.println("Pressed");
+    previousButton = digitalRead(2);
+  } else if (digitalRead(2) == LOW && digitalRead(2) != previousButton) {
+    Serial.println("Released");
+    previousButton = 0;
+    buttonMode++;
+  }
+
+  if (buttonMode % 2 == 1) {
+    if (alreadyConnected == false) {  // only run connected if it hasn't already run, we'll turn this back off in "disconnected"
+
+      connected();
+      // delay(1000);
+      // pixels.clear();
+      alreadyConnected = true;
+    }
+
+    pulseMode();
+  } else {
+    if (alreadyConnected == true) {  // only run connected if it hasn't already run, we'll turn this back off in "disconnected"
+
+      disconnected();
+      alreadyConnected = false;
+    }
+
+    pixelClock();
+  }
+  //  Serial.println(pulseSensor.getBeatsPerMinute());
+}
+
+
+
+void pixelClock() {
+  // Serial.println("Running pixelClock");
+
+  // Map h, m and s to a pixel on the ring
+  h = ((rtc.getHours() % 12) * 5);
+  m = (rtc.getMinutes());
+  s = (rtc.getSeconds());
+
+  // Test with Serial
+  // Serial.print(h);
+  // Serial.print(":");
+  // Serial.print(m);
+  // Serial.print(":");
+  // Serial.print(s);
+  // Serial.println();
+
+  // Write to Pixels
+  pixels.clear();
+  pixels.setPixelColor(h, pixels.Color(100, 100, 100));
+  pixels.setPixelColor(h + 1, pixels.Color(100, 100, 100));
+  // pixels.setPixelColor(h+2, pixels.Color(100, 100, 100));
+  // pixels.setPixelColor(h+3, pixels.Color(100, 100, 100));
+  pixels.setPixelColor(m, pixels.Color(186, 144, 39));
+  pixels.setPixelColor(s, pixels.Color(0, 200, 0));
+  pixels.show();
+}
+
+void pulseMode() {
+  // Serial.println("Running pulseMode");
 
   //PULSE
   /*
@@ -251,28 +357,37 @@ void loop() {
     }
     if (pulseSensor.getBeatsPerMinute() > 40 && pulseSensor.getBeatsPerMinute() < 200) {  // if reading is within human limits
 
-      if (alreadyConnected = false) {  // only run connected if it hasn't already run, we'll turn this back off in "disconnected"
+      pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
+      interval = 60000 / pulseRate;                 // divide 60 seconds by BPM, make that the interval (delay time)
+      //  Serial.println(interval);
 
-        connected();
-        delay(3000);
-        pixels.clear();
-        pixels.show();
+      pulseSensor.getBeatsPerMinute();
+
+
+      if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
+
+        // Set current array value to 100, 100, 100 (we use an array so we can independently fade every pixel below while pulsing this one)
+        currentPixel[ringCount] = 200;
+
+        // Set every pixel to current array value
+        pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
+
+        ringCount++;
+        ringCount = ringCount % NUMPIXELS;
+
+        passedtime = millis();
       }
 
-      pulseMode();
-
-    } else {
-
-      if (alreadyConnected = true) {
-
-        disconnected();
-        pixels.clear();
-        pixels.show();
+      // Fade down any pixels above zero
+      for (int i = 0; i < NUMPIXELS; i++) {
+        if (currentPixel[i] > 0) {
+          currentPixel[i] -= fadeRate;
+          pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
+        }
       }
-      pixelClock();
+      pixels.show();
     }
 
-    Serial.println(pulseSensor.getBeatsPerMinute());
 
 
     /*******
@@ -287,93 +402,54 @@ void loop() {
   }
 }
 
-void pixelClock() {
-
-  // Map h, m and s to a pixel on the ring
-  h = ((rtc.getHours() % 12) * 5);
-  m = (rtc.getMinutes());
-  s = (rtc.getSeconds());
-
-  // Test with Serial
-  Serial.print(h);
-  Serial.print(":");
-  Serial.print(m);
-  Serial.print(":");
-  Serial.print(s);
-  Serial.println();
-
-  // Write to Pixels
-  pixels.clear();
-  pixels.setPixelColor(h, pixels.Color(100, 100, 100));
-  pixels.setPixelColor(m, pixels.Color(186, 144, 39));
-  pixels.setPixelColor(s, pixels.Color(39, 118, 186));
-  pixels.show();
-}
-
-void pulseMode() {
-  pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
-  interval = 60000 / pulseRate;                 // divide 60 seconds by BPM, make that the interval (delay time)
-  //  Serial.println(interval);
-
-  pulseSensor.getBeatsPerMinute();
-
-
-  if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
-
-    // Set current array value to 100, 100, 100 (we use an array so we can independently fade every pixel below while pulsing this one)
-    currentPixel[ringCount] = 200;
-
-    // Set every pixel to current array value
-    pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
-
-    ringCount++;
-    ringCount = ringCount % NUMPIXELS;
-
-    passedtime = millis();
-  }
-
-  // Fade down any pixels above zero
-  for (int i = 0; i < NUMPIXELS; i++) {
-    if (currentPixel[i] > 0) {
-      currentPixel[i] -= fadeRate;
-      pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
-    }
-  }
-  pixels.show();
-}
-
 void connected() {
-  Serial.println("connected");
+  // Serial.println("connected");
   pixels.clear();
   // Whole ring glows green and fades back to off
-  for (int k = 0; k < NUMPIXELS; k++) {
-    currentPixel[k] = 100;
-    pixels.setPixelColor(k, 0, currentPixel[k], 0);
-  }
-  for (int l = 0; l < NUMPIXELS; l++) {
-    if (currentPixel[l] > 0) {
-      currentPixel[l] -= 1;
+  for (int k = 0; k > 99; k++) {
+    for (int l = 0; l < NUMPIXELS; l++) {
+
+      pixels.setPixelColor(l, 0, k, 0);
     }
+    pixels.show();
+    delay(10);
   }
 
-  pixels.show();
-  alreadyConnected = true;
+  delay(500);
+
+  for (int k = 99; k > 0; k--) {
+    for (int l = 0; l < NUMPIXELS; l++) {
+
+      pixels.setPixelColor(l, 0, k, 0);
+    }
+    pixels.show();
+    delay(20);
+  }
+  pixels.clear();
 }
 
 void disconnected() {
-  Serial.println("disconnected");
+  // Serial.println("disconnected");
   pixels.clear();
-  // Whole ring glows green and fades back to off
-  for (int m = 0; m < NUMPIXELS; m++) {
-    currentPixel[m] = 100;
-    pixels.setPixelColor(currentPixel[m], 0, currentPixel[m], 0);
-  }
-  for (int n = 0; n < NUMPIXELS; n++) {
-    if (currentPixel[n] > 0) {
-      currentPixel[n] -= 1;
+  // Whole ring glows red and fades back to off
+  for (int k = 0; k > 99; k++) {
+    for (int l = 0; l < NUMPIXELS; l++) {
+
+      pixels.setPixelColor(l, k, 0, 0);
     }
+    pixels.show();
+    delay(10);
   }
 
-  pixels.show();
-  alreadyConnected = false;
+  delay(500);
+
+  for (int k = 99; k > 0; k--) {
+    for (int l = 0; l < NUMPIXELS; l++) {
+
+      pixels.setPixelColor(l, k, 0, 0);
+    }
+    pixels.show();
+    delay(20);
+  }
+  pixels.clear();
 }
