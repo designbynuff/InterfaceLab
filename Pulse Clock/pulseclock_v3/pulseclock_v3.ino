@@ -1,5 +1,6 @@
 /*
    Combining PulseSensor_BPM_Alternative from PulseSensor Playground and NeoPixel Ring simple sketch from Adafruit Neopixel
+   More info here: https://www.notion.so/nuff/Pulse-Clock-a7fbea9ade7940f2a7756a85b0ea8c0b?pvs=4#6088fc27881b4046944c3d6e8e83dcf9
 
    Here is a link to the tutorial that discusses this code
    https://pulsesensor.com/pages/getting-advanced
@@ -124,13 +125,15 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 RTCZero rtc;          // Create RTC object
 
 #define DELAYVAL 200  // Time (in milliseconds) to pause between pixels
-int red = 100;
+int red = 0;
 int pulseRate;  // I'll use this to drive the clock
 int ringCount = 0;
 int brightness = 100;
 float fadeRate = 0.035;
 
-float currentPixel[60];
+float currentPixelR[60];
+float currentPixeG[60];
+float currentPixelB[60];
 
 //Clock Stuff
 #include <WiFiNINA.h>
@@ -248,7 +251,9 @@ void setup() {
 
 
   for (int j = 0; j < NUMPIXELS; j++) {
-    currentPixel[j] = 0;  // set value to zero for all pixels
+    currentPixelR[j] = 0;  // set value to zero for all pixels
+    currentPixelG[j] = 0;  
+    currentPixelB[j] = 0;  
   }
 }
 
@@ -261,10 +266,10 @@ void loop() {
 
 
   if (digitalRead(2) == HIGH && digitalRead(2) != previousButton) {
-    Serial.println("Pressed");
+    // Serial.println("Pressed");
     previousButton = digitalRead(2);
   } else if (digitalRead(2) == LOW && digitalRead(2) != previousButton) {
-    Serial.println("Released");
+    // Serial.println("Released");
     previousButton = 0;
     buttonMode++;
   }
@@ -359,21 +364,32 @@ void pulseMode() {
 
       pulseRate = pulseSensor.getBeatsPerMinute();  // turn the BPM into pulseRate
       interval = 60000 / pulseRate;                 // divide 60 seconds by BPM, make that the interval (delay time)
-      //  Serial.println(interval);
-
-      pulseSensor.getBeatsPerMinute();
+      // Serial.println(interval);
+      // Serial.println (pulseSensor.getBeatsPerMinute());
 
 
       if (millis() - passedtime > interval) {  // if more time has passed than our most recent interval, which wil either be set by pulse sensor or our default 200ms
 
-        // Set current array value to 100, 100, 100 (we use an array so we can independently fade every pixel below while pulsing this one)
-        currentPixel[ringCount] = 200;
+        // Map red amount to add based on current BPM
+        red = map(pulseRate, 40, 200, -40, 40);
+        
+        // Set current array RGB values (we use an array so we can independently fade every pixel below while pulsing this one)
+        currentPixelR[ringCount] = 200 + red;
+        currentPixelG[ringCount] = 200 + red;
+        currentPixelB[ringCount] = 200 + red;
+
+        
 
         // Set every pixel to current array value
         pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
 
         ringCount++;
         ringCount = ringCount % NUMPIXELS;
+
+        // Add 10% to each light to create a pulse
+        // for (int i = 0; i < NUMPIXELS; i++){
+        //   currentPixel[i] += 2;
+        // }
 
         passedtime = millis();
       }
@@ -406,16 +422,13 @@ void connected() {
   // Serial.println("connected");
   pixels.clear();
   // Whole ring glows green and fades back to off
-  for (int k = 0; k > 99; k++) {
+  
     for (int l = 0; l < NUMPIXELS; l++) {
 
-      pixels.setPixelColor(l, 0, k, 0);
+      pixels.setPixelColor(l, 0, 99, 0);
+          pixels.show();
     }
-    pixels.show();
-    delay(10);
-  }
 
-  delay(500);
 
   for (int k = 99; k > 0; k--) {
     for (int l = 0; l < NUMPIXELS; l++) {
@@ -423,7 +436,7 @@ void connected() {
       pixels.setPixelColor(l, 0, k, 0);
     }
     pixels.show();
-    delay(20);
+    delay(10);
   }
   pixels.clear();
 }
@@ -431,25 +444,18 @@ void connected() {
 void disconnected() {
   // Serial.println("disconnected");
   pixels.clear();
-  // Whole ring glows red and fades back to off
-  for (int k = 0; k > 99; k++) {
-    for (int l = 0; l < NUMPIXELS; l++) {
 
-      pixels.setPixelColor(l, k, 0, 0);
+      for (int l = 0; l < NUMPIXELS; l++) {
+
+      pixels.setPixelColor(l, 99, 0, 0);
+          pixels.show();
     }
-    pixels.show();
-    delay(10);
-  }
+delay(100);
+     for (int l = 0; l < NUMPIXELS; l++) {
 
-  delay(500);
-
-  for (int k = 99; k > 0; k--) {
-    for (int l = 0; l < NUMPIXELS; l++) {
-
-      pixels.setPixelColor(l, k, 0, 0);
+      pixels.setPixelColor(l, 0, 0, 0);
+          pixels.show();
     }
-    pixels.show();
-    delay(20);
-  }
   pixels.clear();
+  delay(100);
 }
