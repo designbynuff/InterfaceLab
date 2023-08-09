@@ -132,7 +132,7 @@ int brightness = 100;
 float fadeRate = 0.035;
 
 float currentPixelR[60];
-float currentPixeG[60];
+float currentPixelG[60];
 float currentPixelB[60];
 
 //Clock Stuff
@@ -374,21 +374,23 @@ void pulseMode() {
         red = map(pulseRate, 40, 200, -40, 40);
         
         // Set current array RGB values (we use an array so we can independently fade every pixel below while pulsing this one)
-        currentPixelR[ringCount] = 200 + red;
-        currentPixelG[ringCount] = 200 + red;
-        currentPixelB[ringCount] = 200 + red;
+        currentPixelR[ringCount] = 100; // + red; //comment out the +red to go back to monochrome
+        currentPixelG[ringCount] = 100;
+        currentPixelB[ringCount] = 100;
 
         
 
         // Set every pixel to current array value
-        pixels.setPixelColor(ringCount, pixels.Color(currentPixel[ringCount], currentPixel[ringCount], currentPixel[ringCount]));
+        pixels.setPixelColor(ringCount, pixels.Color(currentPixelR[ringCount], currentPixelG[ringCount], currentPixelB[ringCount]));
 
         ringCount++;
         ringCount = ringCount % NUMPIXELS;
 
         // Add 10% to each light to create a pulse
         // for (int i = 0; i < NUMPIXELS; i++){
-        //   currentPixel[i] += 2;
+        //   currentPixelR[i] += 2;
+        //   currentPixelG[i] += 2;
+        //   currentPixelB[i] += 2;
         // }
 
         passedtime = millis();
@@ -396,10 +398,16 @@ void pulseMode() {
 
       // Fade down any pixels above zero
       for (int i = 0; i < NUMPIXELS; i++) {
-        if (currentPixel[i] > 0) {
-          currentPixel[i] -= fadeRate;
-          pixels.setPixelColor(i, pixels.Color(currentPixel[i], currentPixel[i], currentPixel[i]));
+        if (currentPixelR[i] > 0) {
+          currentPixelR[i] -= fadeRate; 
         }
+        if (currentPixelG[i] > 0) {
+          currentPixelG[i] -= fadeRate; 
+        }
+        if (currentPixelB[i] > 0) {
+          currentPixelB[i] -= fadeRate; 
+        }
+        pixels.setPixelColor(i, pixels.Color(currentPixelR[i], currentPixelG[i], currentPixelB[i]));
       }
       pixels.show();
     }
