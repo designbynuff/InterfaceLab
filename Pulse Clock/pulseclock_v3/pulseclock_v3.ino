@@ -140,8 +140,10 @@ float currentPixelB[60];
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 
-#define SSID "sandbox370"
-#define PASS "+s0a+s03!2gether?"
+//WiFi Credentials (370 Jay is "sandbox370", "+s0a+s03!2gether?")
+
+#define SSID "Verizon_Q9CXS7" // WiFi Network
+#define PASS "cif6-moat-movie" // WiFi Password
 
 const long utcOffsetWinter = -18000;  // Offset from EST in seconds (3600 seconds = 5h) -- UTC-5 (EDT)
 const long utcOffsetSummer = -14400;  // Offset from UTC in seconds (7200 seconds * 4h) -- UTC-4 (EST)
@@ -221,7 +223,7 @@ void setup() {
   WiFi.begin(SSID, PASS);
 
   Serial.print("Connecting to ");
-  Serial.print(SSID);
+  Serial.println(SSID);
 
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
