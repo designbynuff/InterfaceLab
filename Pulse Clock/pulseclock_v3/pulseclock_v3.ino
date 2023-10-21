@@ -451,6 +451,7 @@ void connected() {
   pixels.clear();
 }
 
+//Disconnected Animation: red ring in, red ring out.
 void disconnected() {
   // Serial.println("disconnected");
   pixels.clear();
